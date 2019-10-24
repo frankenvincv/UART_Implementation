@@ -10,6 +10,7 @@ import com.google.android.things.pio.UartDevice;
 import com.google.android.things.pio.UartDeviceCallback;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 
 
@@ -37,8 +38,7 @@ public class MainActivity extends Activity {
     private static final String TAG = "UART";
     private static final String UART_DEVICE_NAME = "UART0";
     private int sizeBuffer = 32;
-    PeripheralManager manager = PeripheralManager.getInstance();
-    List<String> deviceList = manager.getUartDeviceList();
+
     private UartDevice mDevice;
     TextView mTextvew;
 
@@ -47,20 +47,23 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         mTextvew = (TextView) findViewById(R.id.text);
+        /*
+        List<String> deviceList = manager.getUartDeviceList();
         if (deviceList.isEmpty()){
             Log.i(TAG,"No UART port available on this device");
         }else {
             Log.i(TAG,"List of available devices : "+deviceList);
             mTextvew.setText(deviceList.toString());
-
-        }
+        }*/
         try{
+            Log.w(TAG,"Try To connect UART");
+            PeripheralManager manager = PeripheralManager.getInstance();
             mDevice = manager.openUartDevice(UART_DEVICE_NAME);
             configureUartFrame(mDevice);
-            mDevice.registerUartDeviceCallback(mUartCallback);
+            //mDevice.registerUartDeviceCallback(mUartCallback);
 
         }catch (IOException e){
-            Log.w(TAG," ",e);
+            Log.w(TAG,"ERROR - ",e);
         }
     }
 
@@ -69,7 +72,7 @@ public class MainActivity extends Activity {
         super.onDestroy();
         if (mDevice != null){
             try{
-                mDevice.unregisterUartDeviceCallback(mUartCallback);
+                //mDevice.unregisterUartDeviceCallback(mUartCallback);
                 mDevice.close();
                 mDevice = null;
 
@@ -77,6 +80,23 @@ public class MainActivity extends Activity {
                 Log.w(TAG,"Unable to access UART device",e);
             }
         }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        try {
+            Log.w(TAG,"Try to listen.");
+            mDevice.registerUartDeviceCallback(mUartCallback);
+        } catch (IOException e) {
+            Log.w(TAG,"ERROR - ",e);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        mDevice.unregisterUartDeviceCallback(mUartCallback);
     }
 
     public void writeUartData(UartDevice uart) throws IOException{
@@ -91,8 +111,9 @@ public class MainActivity extends Activity {
 
         int count;
         while((count = uart.read(buffer,buffer.length))>0){
-            String s = "READ : "+count;
+            String s = new String(buffer);
             mTextvew.setText(s);
+            uart.write(buffer,count);
             Log.d(TAG,"Read "+count+" bytes from peripheral.");
         }
     }
